@@ -28,6 +28,7 @@ This bot serves as a bridge between the Pepper.pl deal platform and Discord. It 
 ### Prerequisites
 *   Python 3.10 or higher
 *   A Discord Bot Token (from [Discord Developer Portal](https://discord.com/developers/applications))
+*   [uv](https://github.com/astral-sh/uv) (Recommended for 10-100x faster dependency resolution)
 
 ### Installation
 
@@ -37,20 +38,22 @@ This bot serves as a bridge between the Pepper.pl deal platform and Discord. It 
     cd DiscordPepperPL
     ```
 
-2.  **Create and activate a virtual environment:**
+2.  **Fast Setup (Recommended with `uv`):**
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate  # Linux/macOS
-    # or
-    # venv\Scripts\activate  # Windows
+    # Create venv and install dependencies in one go (extremely fast)
+    uv venv
+    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    uv pip install -r requirements.txt
     ```
 
-3.  **Install dependencies:**
+    *Alternative (Traditional pip):*
     ```bash
+    python3 -m venv venv
+    source venv/bin/activate
     pip install -r requirements.txt
     ```
 
-4.  **Configuration:**
+3.  **Configuration:**
     Create a `.env` file in the root directory:
     ```bash
     touch .env
@@ -60,7 +63,7 @@ This bot serves as a bridge between the Pepper.pl deal platform and Discord. It 
     DISCORD_BOT_TOKEN=your_token_here
     ```
 
-5.  **Run the bot:**
+4.  **Run the bot:**
     ```bash
     python bot.py
     ```
