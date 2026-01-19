@@ -34,8 +34,8 @@ This bot serves as a bridge between the Pepper.pl deal platform and Discord. It 
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/Kehlanii/DiscordPepperPL.git
-    cd DiscordPepperPL
+    git clone https://github.com/Kehlanii/PepperPLDiscord.git
+    cd PepperPLDiscord
     ```
 
 2.  **Fast Setup (Recommended with `uv`):**
@@ -126,8 +126,8 @@ For production, it is recommended to run the bot as a systemd service.
     [Service]
     Type=simple
     User=your_user
-    WorkingDirectory=/path/to/DiscordPepperPL
-    ExecStart=/path/to/DiscordPepperPL/venv/bin/python bot.py
+    WorkingDirectory=/path/to/PepperPLDiscord
+    ExecStart=/path/to/PepperPLDiscord/venv/bin/python bot.py
     Restart=always
     RestartSec=10
 
