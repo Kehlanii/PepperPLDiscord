@@ -1,19 +1,17 @@
 import asyncio
+import datetime
 import json
 import logging
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote
 
 import aiohttp
-from selectolax.parser import HTMLParser  # QUICK WIN #3: Replace BeautifulSoup
+from selectolax.parser import HTMLParser
 
 logger = logging.getLogger("PepperBot.Scraper")
 
 
 class PepperScraper:
-    """
-    Web scraper for Pepper.pl - extracts data from embedded Vue components.
-    """
 
     BASE_URL = "https://www.pepper.pl"
     DEFAULT_HEADERS = {
@@ -29,10 +27,6 @@ class PepperScraper:
     async def search_deals(
         self, query: str, limit: int = 7, sort: str = "relevance"
     ) -> Dict[str, Any]:
-        """
-        Search for deals on Pepper.pl.
-        sort options: 'relevance', 'new', 'hot'
-        """
         sort_param = ""
         if sort == "new":
             sort_param = "&sort=new"
@@ -43,18 +37,15 @@ class PepperScraper:
         return await self._fetch_and_parse(search_url, limit, context=f"search: {query} ({sort})")
 
     async def get_hot_deals(self, limit: int = 7) -> Dict[str, Any]:
-        """Get hot deals from homepage."""
         return await self._fetch_and_parse(self.BASE_URL, limit, context="hot deals")
 
     async def get_group_deals(self, group_slug: str, limit: int = 7) -> Dict[str, Any]:
-        """Get deals from a specific group/category."""
         from .config import Config
 
         url = Config.GROUP_URL_TEMPLATE.format(group_slug)
         return await self._fetch_and_parse(url, limit, context=f"group: {group_slug}")
 
     async def get_flight_deals(self, limit: int = 10) -> Dict[str, Any]:
-        """Get deals from flight tickets category."""
         from .config import Config
 
         return await self._fetch_and_parse(
@@ -96,10 +87,6 @@ class PepperScraper:
         return {"success": False, "error": "Max retries exceeded", "deals": []}
 
     def _extract_deals_from_html(self, html: str) -> List[Dict[str, Any]]:
-        """
-        Extract deals using selectolax (optimized parser).
-        Falls back to standard HTML parsing if Vue data is missing.
-        """
         deals = []
         try:
             tree = HTMLParser(html)
@@ -137,7 +124,6 @@ class PepperScraper:
             return deals
 
     def _parse_article_html_selectolax(self, article) -> Optional[Dict[str, Any]]:
-        """Fallback method using selectolax Node."""
         try:
             title_elem = article.css_first('.thread-title a')
             if not title_elem:
@@ -173,14 +159,23 @@ class PepperScraper:
                 "merchant": merchant,
                 "image_url": image_url,
                 "voucher_code": None,
+                "posted_timestamp": None,
+                "status": "unknown",
             }
         except Exception as e:
             logger.debug(f"Selectolax parsing error: {e}")
             return None
 
     def _parse_thread_data(self, thread: Dict) -> Optional[Dict]:
-        """Parse raw thread JSON into a clean dictionary."""
         try:
+            status = thread.get("status", "unknown")
+            is_expired = thread.get("isExpired", False)
+            is_archived = thread.get("isArchived", False)
+            
+            if is_expired or is_archived or status in ["expired", "archived", "deleted"]:
+                logger.debug(f"Skipping unavailable deal: status={status}, expired={is_expired}")
+                return None
+            
             title = thread.get("title", "Brak tytułu")
             thread_id = thread.get("threadId", "")
             title_slug = thread.get("titleSlug", "")
@@ -220,6 +215,14 @@ class PepperScraper:
                         f"https://static.pepper.pl/{path}/{name}/re/600x600/qt/80/{name}.{ext}"
                     )
 
+            published_at = thread.get("publishedAt")
+            posted_timestamp = None
+            if published_at:
+                try:
+                    posted_timestamp = datetime.datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    posted_timestamp = None
+
             return {
                 "title": title,
                 "link": link,
@@ -229,6 +232,8 @@ class PepperScraper:
                 "merchant": merchant,
                 "image_url": image_url,
                 "voucher_code": thread.get("voucherCode", ""),
+                "posted_timestamp": posted_timestamp,
+                "status": status,
             }
         except Exception as e:
             logger.error(f"Error parsing thread data: {e}", exc_info=True)

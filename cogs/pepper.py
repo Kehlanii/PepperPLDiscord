@@ -1,6 +1,7 @@
-import asyncio  # Added: Required for asyncio.sleep()
+import asyncio
 import datetime
 import logging
+from collections import defaultdict
 from typing import Any, Dict, Optional
 
 import discord
@@ -15,7 +16,6 @@ from utils.views import DealPaginator
 
 logger = logging.getLogger("PepperBot.Cogs")
 
-# Configuration constants
 CATEGORY_STAGGER_DELAY = 2
 MAX_DEALS_PER_NOTIFICATION = 10
 MAX_CATEGORIES_PER_GUILD = 20
@@ -38,7 +38,6 @@ class PepperCommands(commands.Cog):
         self.alerts_manager = AlertsManager(self.bot.db)
         self.category_manager = CategoryManager(self.bot.db)
 
-        # Start background tasks
         self.flight_deals_task.start()
         self.alerts_task.start()
         self.category_notification_task.start()
@@ -108,7 +107,6 @@ class PepperCommands(commands.Cog):
     
     @tasks.loop(hours=CLEANUP_INTERVAL_HOURS)
     async def cleanup_task(self):
-        """Clean up old deal records to prevent database bloat."""
         try:
             logger.info("Running scheduled cleanup task...")
             
@@ -264,55 +262,70 @@ class PepperCommands(commands.Cog):
             return 0.0
 
     async def process_alerts(self):
-        """Checks for deals matching user alerts."""
         try:
             notifications = await self.alerts_manager.check_alerts(self.scraper)
-
+            
+            grouped = defaultdict(lambda: defaultdict(list))
             for notif in notifications:
                 user_id = notif["user_id"]
-                deal = notif["deal"]
                 query = notif["query"]
-
+                deal = notif["deal"]
+                grouped[user_id][query].append(deal)
+            
+            for user_id, queries_dict in grouped.items():
                 user = self.bot.get_user(user_id)
                 if not user:
                     try:
                         user = await self.bot.fetch_user(user_id)
-                    except discord.NotFound:
-                        continue
-                    except Exception as e:
+                    except (discord.NotFound, Exception) as e:
                         logger.warning(f"Could not fetch user {user_id}: {e}")
                         continue
-
-                if user:
+                
+                for query, deals in queries_dict.items():
                     try:
+                        deals_sorted = sorted(deals, key=lambda d: d.get('temperature', 0), reverse=True)
+                        top_deals = deals_sorted[:5]
+                        
                         embed = discord.Embed(
-                            title=f"🚨 Nowa okazja dla: {query}",
-                            description=f"**[{deal['title']}]({deal['link']})**\n💰 **{deal['price']}**\n🔥 {deal['temperature']}°",
-                            color=Config.COLOR_SUCCESS,
-                            url=deal["link"],
+                            title=f"🚨 {len(deals)} {'nowa okazja' if len(deals) == 1 else 'nowych okazji'} dla: {query}",
+                            color=Config.COLOR_SUCCESS
                         )
-                        if deal.get("image_url"):
-                            embed.set_thumbnail(url=deal["image_url"])
-
-                        embed.set_footer(text="PepperWatch • Powiadomienie automatyczne")
-
+                        
+                        for i, deal in enumerate(top_deals, 1):
+                            temp = deal.get('temperature', 0)
+                            icon = '🔥' if temp > 300 else '❄️'
+                            if temp > 500:
+                                icon = '🌋'
+                            
+                            value = f"💰 **{deal['price']}** | {icon} {temp}°\n[🔗 Zobacz okazję]({deal['link']})"
+                            
+                            embed.add_field(
+                                name=f"{i}. {deal['title'][:70]}...",
+                                value=value,
+                                inline=False
+                            )
+                        
+                        if top_deals[0].get('image_url'):
+                            embed.set_thumbnail(url=top_deals[0]['image_url'])
+                        
+                        embed.set_footer(text="PepperWatch • Sprawdzam co 15 minut")
+                        
                         await user.send(embed=embed)
-                        logger.info(f"Sent alert to {user.name} for {query}")
-
+                        logger.info(f"Sent {len(top_deals)} deals to {user.name} for query '{query}'")
+                        
                         await asyncio.sleep(0.5)
-
+                    
                     except discord.Forbidden:
-                        logger.warning(
-                            f"Cannot send DM to {user.name} ({user_id}) - Privacy settings?"
-                        )
-
+                        logger.warning(f"Cannot send DM to {user.name} ({user_id})")
+                    except Exception as e:
+                        logger.error(f"Error sending alert to {user_id}: {e}", exc_info=True)
+        
         except Exception as e:
             logger.error(f"Error in alerts task: {e}", exc_info=True)
 
     async def process_flight_deals(
         self, manual_trigger: bool = False, interaction: discord.Interaction = None
     ):
-        """Core logic for fetching and sending flight deals."""
         channel_id = Config.FLIGHT_CHANNEL_ID
 
         target_channel = None
@@ -414,7 +427,6 @@ class PepperCommands(commands.Cog):
         title_success: str,
         title_empty: str,
     ):
-        """Unified handler for sending deal results using Pagination View."""
         if not result["success"]:
             await interaction.followup.send(
                 embed=discord.Embed(
@@ -514,10 +526,8 @@ class PepperCommands(commands.Cog):
     async def pw_add(
         self, interaction: discord.Interaction, query: str, max_price: Optional[float] = None
     ):
-        """Adds a new price alert."""
         await interaction.response.defer(ephemeral=True)
 
-        # User limit check
         current = await self.alerts_manager.get_alerts(interaction.user.id)
         if len(current) >= 10:
             await interaction.followup.send(
@@ -538,7 +548,6 @@ class PepperCommands(commands.Cog):
 
     @pepperwatch_group.command(name="list", description="Pokaż moje aktywne powiadomienia")
     async def pw_list(self, interaction: discord.Interaction):
-        """Lists user alerts."""
         alerts = await self.alerts_manager.get_alerts(interaction.user.id)
         if not alerts:
             await interaction.response.send_message(
@@ -562,7 +571,6 @@ class PepperCommands(commands.Cog):
     @pepperwatch_group.command(name="remove", description="Usuń powiadomienie")
     @app_commands.describe(query="Fraza do usunięcia (dokładna nazwa z listy)")
     async def pw_remove(self, interaction: discord.Interaction, query: str):
-        """Removes an alert."""
         removed = await self.alerts_manager.remove_alert(interaction.user.id, query)
         if removed:
             await interaction.response.send_message(
@@ -872,8 +880,6 @@ class PepperCommands(commands.Cog):
                     "⚠️ An unexpected error occurred. Please try again.",
                     ephemeral=True
                 )
-
-
 
 
 async def setup(bot):

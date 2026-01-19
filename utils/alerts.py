@@ -1,10 +1,15 @@
 import asyncio
+import datetime
 import logging
 from typing import Any, Dict, List, Optional
 
 from .db import Database
 
 logger = logging.getLogger("PepperBot.Alerts")
+
+FRESHNESS_CUTOFF_HOURS = 24
+MIN_TEMPERATURE = 50
+MAX_REASONABLE_PRICE = 1000000
 
 
 class AlertsManager:
@@ -24,13 +29,12 @@ class AlertsManager:
         return await self.db.get_user_alerts(user_id)
 
     async def check_alerts(self, scraper) -> List[Dict[str, Any]]:
-        """
-        Checks all alerts against current deals.
-        Optimized with in-memory deduplication and batch writes.
-        """
         notifications = []
         batch_seen = []
         seen_in_cycle = set()
+
+        current_time = datetime.datetime.now()
+        freshness_cutoff = current_time - datetime.timedelta(hours=FRESHNESS_CUTOFF_HOURS)
 
         unique_queries = await self.db.get_all_unique_queries()
         logger.info(f"Checking {len(unique_queries)} unique queries...")
@@ -47,8 +51,34 @@ class AlertsManager:
                 continue
 
             for deal in result["deals"]:
+                posted_time = deal.get("posted_timestamp")
+                
+                if posted_time:
+                    if isinstance(posted_time, str):
+                        try:
+                            posted_time = datetime.datetime.fromisoformat(posted_time.replace('Z', '+00:00'))
+                        except ValueError:
+                            posted_time = None
+                    
+                    if posted_time and posted_time < freshness_cutoff:
+                        logger.debug(f"Skipping old deal: {deal['link']}")
+                        continue
+                
+                temp = deal.get('temperature', 0)
+                if temp < MIN_TEMPERATURE:
+                    logger.debug(f"Skipping low-quality deal: {temp}° - {deal['link']}")
+                    continue
+
                 deal_id = deal["link"]
                 deal_price = self._parse_price(deal["price"])
+
+                if deal_price is None:
+                    logger.warning(f"Skipping deal with invalid price: {deal['link']}")
+                    continue
+                
+                if deal_price > MAX_REASONABLE_PRICE:
+                    logger.warning(f"Skipping deal with unreasonable price: {deal_price} zł")
+                    continue
 
                 for sub in subscribers:
                     user_id = sub["user_id"]
@@ -63,16 +93,17 @@ class AlertsManager:
                         seen_in_cycle.add(cache_key)
                         continue
 
-                    price_ok = max_price is None or deal_price <= max_price
+                    if max_price is not None:
+                        if deal_price > 0 and deal_price > max_price:
+                            continue
 
-                    if price_ok:
-                        notifications.append({
-                            "user_id": user_id,
-                            "deal": deal,
-                            "query": query
-                        })
-                        batch_seen.append(cache_key)
-                        seen_in_cycle.add(cache_key)
+                    notifications.append({
+                        "user_id": user_id,
+                        "deal": deal,
+                        "query": query
+                    })
+                    batch_seen.append(cache_key)
+                    seen_in_cycle.add(cache_key)
 
             if len(unique_queries) > 5:
                 await asyncio.sleep(1.5)
@@ -84,10 +115,9 @@ class AlertsManager:
         logger.info(f"Alert check complete: {len(notifications)} notifications, {len(seen_in_cycle)} cached checks")
         return notifications
 
-    def _parse_price(self, price_str: Optional[str]) -> float:
-        """Robust price parsing helper."""
+    def _parse_price(self, price_str: Optional[str]) -> Optional[float]:
         if not price_str:
-            return 0.0
+            return None
         try:
             clean = price_str.lower().replace("zł", "").replace(" ", "").replace(",", ".")
 
@@ -96,4 +126,5 @@ class AlertsManager:
 
             return float(clean)
         except ValueError:
-            return 0.0
+            logger.warning(f"Failed to parse price: {price_str}")
+            return None
