@@ -367,15 +367,31 @@ class PepperCommands(commands.Cog):
         error_msg: str
     ):
         try:
+            from utils.deal_filter import DealFilter
+            
             result = await scraper_method(*method_args)
             
             if not result["success"]:
                 await message.reply(f"❌ Error: {result.get('error', 'Unknown')}", delete_after=10)
                 return
             
-            deals = result["deals"]
+            all_deals = result["deals"]
+            deals = DealFilter.filter_deals(
+                all_deals,
+                check_freshness=True,
+                check_temperature=True,
+                check_price=True
+            )
+            
             if not deals:
-                await message.reply(error_msg, delete_after=10)
+                if all_deals:
+                    await message.reply(
+                        f"🔍 Found {len(all_deals)} deals, but none met quality standards.\n"
+                        f"Filters: Recent (<24h), Hot (≥50°), Valid price",
+                        delete_after=20
+                    )
+                else:
+                    await message.reply(error_msg, delete_after=10)
                 return
             
             view = DealPaginator(deals, message.author)

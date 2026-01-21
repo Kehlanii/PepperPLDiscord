@@ -7,10 +7,6 @@ from .db import Database
 
 logger = logging.getLogger("PepperBot.Alerts")
 
-FRESHNESS_CUTOFF_HOURS = 24
-MIN_TEMPERATURE = 50
-MAX_REASONABLE_PRICE = 1000000
-
 
 class AlertsManager:
     def __init__(self, db: Database):
@@ -29,12 +25,11 @@ class AlertsManager:
         return await self.db.get_user_alerts(user_id)
 
     async def check_alerts(self, scraper) -> List[Dict[str, Any]]:
+        from utils.deal_filter import DealFilter
+        
         notifications = []
         batch_seen = []
         seen_in_cycle = set()
-
-        current_time = datetime.datetime.now()
-        freshness_cutoff = current_time - datetime.timedelta(hours=FRESHNESS_CUTOFF_HOURS)
 
         unique_queries = await self.db.get_all_unique_queries()
         logger.info(f"Checking {len(unique_queries)} unique queries...")
@@ -50,35 +45,16 @@ class AlertsManager:
             if not subscribers:
                 continue
 
-            for deal in result["deals"]:
-                posted_time = deal.get("posted_timestamp")
-                
-                if posted_time:
-                    if isinstance(posted_time, str):
-                        try:
-                            posted_time = datetime.datetime.fromisoformat(posted_time.replace('Z', '+00:00'))
-                        except ValueError:
-                            posted_time = None
-                    
-                    if posted_time and posted_time < freshness_cutoff:
-                        logger.debug(f"Skipping old deal: {deal['link']}")
-                        continue
-                
-                temp = deal.get('temperature', 0)
-                if temp < MIN_TEMPERATURE:
-                    logger.debug(f"Skipping low-quality deal: {temp}° - {deal['link']}")
-                    continue
+            all_deals = result["deals"]
+            filtered_deals = DealFilter.filter_deals(
+                all_deals,
+                check_freshness=True,
+                check_temperature=True,
+                check_price=True
+            )
 
+            for deal in filtered_deals:
                 deal_id = deal["link"]
-                deal_price = self._parse_price(deal["price"])
-
-                if deal_price is None:
-                    logger.warning(f"Skipping deal with invalid price: {deal['link']}")
-                    continue
-                
-                if deal_price > MAX_REASONABLE_PRICE:
-                    logger.warning(f"Skipping deal with unreasonable price: {deal_price} zł")
-                    continue
 
                 for sub in subscribers:
                     user_id = sub["user_id"]
@@ -94,7 +70,8 @@ class AlertsManager:
                         continue
 
                     if max_price is not None:
-                        if deal_price > 0 and deal_price > max_price:
+                        deal_price = DealFilter._parse_price(deal.get("price"))
+                        if deal_price and deal_price > 0 and deal_price > max_price:
                             continue
 
                     notifications.append({
@@ -114,17 +91,3 @@ class AlertsManager:
 
         logger.info(f"Alert check complete: {len(notifications)} notifications, {len(seen_in_cycle)} cached checks")
         return notifications
-
-    def _parse_price(self, price_str: Optional[str]) -> Optional[float]:
-        if not price_str:
-            return None
-        try:
-            clean = price_str.lower().replace("zł", "").replace(" ", "").replace(",", ".")
-
-            if "darm" in clean or "free" in clean or "bezpłatn" in clean:
-                return 0.0
-
-            return float(clean)
-        except ValueError:
-            logger.warning(f"Failed to parse price: {price_str}")
-            return None
