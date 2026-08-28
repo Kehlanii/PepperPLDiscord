@@ -1,0 +1,41 @@
+[project]
+name = "pepper-discord-bot"
+version = "2.0.0"
+description = "Discord bot for Pepper.pl deals"
+requires-python = ">=3.10"
+dependencies = [
+    "discord.py>=2.3.0",
+    "aiohttp>=3.9.0",
+    "python-dotenv>=1.0.0",
+    "aiosqlite>=0.19.0",
+    "selectolax>=0.3.17",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "B", "S", "A", "C4", "PT", "UP"]
+ignore = ["S101", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["utils", "cogs"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.10"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_configs = true

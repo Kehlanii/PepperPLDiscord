@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info
+build/
+dist/
+wheels/
+
+# Virtual env
+.venv/
+venv/
+ENV/
+
+# Environment
+.env
+
+# Runtime data — never track
+*.db
+sent_flights.json
+alerts.json
+
+# uv
+.uv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backups
+*.bak

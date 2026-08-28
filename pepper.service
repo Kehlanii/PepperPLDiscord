@@ -1,0 +1,21 @@
+/etc/systemd/system/pepper.service                                                                        
+[Unit]
+Description=Pepper.pl Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/pepper-discord-bot
+ExecStart=/root/.local/bin/uv run bot.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Optional: Resource limits
+#MemoryMax=512M
+#CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
