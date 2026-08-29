@@ -29,7 +29,7 @@ class CategoriesCog(commands.Cog):
         self.category_task.cancel()
         self.cleanup_task.cancel()
 
-    # --- Task loops ---
+    # Task loops
 
     @tasks.loop(minutes=1)
     async def category_task(self) -> None:
@@ -80,7 +80,6 @@ class CategoriesCog(commands.Cog):
     async def before_cleanup(self) -> None:
         await self.bot.wait_until_ready()
 
-    # --- Core notification logic ---
 
     async def _process_notification(
         self,
@@ -207,7 +206,6 @@ class CategoriesCog(commands.Cog):
                 f"✅ Sent {len(top)} deals to {channel.mention}", ephemeral=True,
             )
 
-    # --- Validation + creation ---
 
     async def _validate_and_create(
         self,
@@ -262,7 +260,6 @@ class CategoriesCog(commands.Cog):
 
         return True, None, cat_id
 
-    # --- Category list embed ---
 
     def _category_list_embed(self, categories: list[dict]) -> discord.Embed:
         embed = discord.Embed(
@@ -287,7 +284,7 @@ class CategoriesCog(commands.Cog):
             )
         return embed
 
-    # --- Text command handlers ---
+    # Text command handlers
 
     async def handle_cat_command(
         self, message: discord.Message, content: str,
@@ -478,7 +475,7 @@ class CategoriesCog(commands.Cog):
         await message.reply(embed=embed, delete_after=30)
         await safe_delete(message)
 
-    # --- Slash commands ---
+    # Slash commands
 
     @category_group.command(
         name="add", description="Add automated category notifications",

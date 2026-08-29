@@ -1,4 +1,3 @@
-/etc/systemd/system/pepper.service                                                                        
 [Unit]
 Description=Pepper.pl Discord Bot
 After=network.target
@@ -12,10 +11,7 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-
-# Optional: Resource limits
-#MemoryMax=512M
-#CPUQuota=50%
+MemoryMax=512M
 
 [Install]
 WantedBy=multi-user.target

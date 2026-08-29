@@ -89,7 +89,7 @@ class Database:
             await self.conn.executescript(f.read())
         logger.info("Applied migration: category_system")
 
-    # --- Sent deals (flight dedup) ---
+    # Sent deals (flight dedup)
 
     async def is_deal_sent(self, deal_id: str) -> bool:
         async with self.conn.execute(
@@ -111,7 +111,7 @@ class Database:
         await self.conn.commit()
         return cur.rowcount
 
-    # --- Alerts ---
+    # Alerts
 
     async def add_alert(
         self, user_id: int, query: str, max_price: float | None = None,
@@ -168,7 +168,7 @@ class Database:
         )
         await self.conn.commit()
 
-    # --- Category configs ---
+    # Category configs
 
     async def add_category_config(
         self, guild_id: int, slug: str, channel_id: int,

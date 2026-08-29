@@ -130,7 +130,6 @@ class FlightsCog(commands.Cog):
                     f"⚠️ Błąd: {e}", ephemeral=True,
                 )
 
-    # --- Text command handler ---
 
     async def handle_fly(self, message: discord.Message) -> None:
         if not message.author.guild_permissions.administrator:
@@ -140,7 +139,7 @@ class FlightsCog(commands.Cog):
         await self._process_flights(manual=True)
         await safe_delete(message)
 
-    # --- Slash command ---
+    # Slash command
 
     @app_commands.command(
         name="flynow",

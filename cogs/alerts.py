@@ -27,7 +27,7 @@ class AlertsCog(commands.Cog):
     async def cog_unload(self) -> None:
         self.alerts_task.cancel()
 
-    # --- Task loop ---
+    # Task loop
 
     @tasks.loop(minutes=Config.WATCH_INTERVAL_MINUTES)
     async def alerts_task(self) -> None:
@@ -103,7 +103,6 @@ class AlertsCog(commands.Cog):
         except Exception as e:
             logger.error("Alert task error: %s", e, exc_info=True)
 
-    # --- Alerts embed ---
 
     def _alerts_embed(self, alerts: list[dict]) -> discord.Embed:
         embed = discord.Embed(
@@ -119,7 +118,7 @@ class AlertsCog(commands.Cog):
         embed.set_footer(text="Use p unwatch:query to remove")
         return embed
 
-    # --- Text command handlers (called by text_commands cog) ---
+    # Text command handlers
 
     async def handle_watch(
         self, message: discord.Message, content: str,
@@ -170,7 +169,7 @@ class AlertsCog(commands.Cog):
                 return query, None
         return text.strip(), None
 
-    # --- Slash commands ---
+    # Slash commands
 
     @pepperwatch_group.command(name="add", description="Dodaj powiadomienie")
     @app_commands.describe(

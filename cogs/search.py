@@ -64,7 +64,7 @@ class SearchCog(commands.Cog):
             logger.error("Search error: %s", e, exc_info=True)
             await message.reply(f"⚠️ Error: {e}", delete_after=10)
 
-    # --- Slash commands ---
+    # Slash commands
 
     async def _slash_search(
         self,
