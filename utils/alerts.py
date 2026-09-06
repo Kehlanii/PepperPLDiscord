@@ -85,7 +85,9 @@ class AlertsManager:
                     # Per-subscriber price cap
                     if sub["max_price"] is not None:
                         deal_price = parse_price(deal.get("price"))
-                        if deal_price and deal_price > 0 and deal_price > sub["max_price"]:
+                        if deal_price is None:
+                            continue  # unknown price, user set cap — skip
+                        if deal_price > 0 and deal_price > sub["max_price"]:
                             continue
 
                     notifications.append({

@@ -148,6 +148,7 @@ class SearchCog(commands.Cog):
         name="pepperclean", description="Usuwa ostatnie wiadomości bota",
     )
     @app_commands.describe(limit="Ile wiadomości sprawdzić? (domyślnie 20)")
+    @app_commands.guild_only()
     async def clean_pepper(
         self, interaction: discord.Interaction, limit: int = 20,
     ) -> None:

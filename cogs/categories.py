@@ -90,6 +90,11 @@ class CategoriesCog(commands.Cog):
     ) -> None:
         channel = self.bot.get_channel(category["channel_id"])
         if not channel:
+            try:
+                channel = await self.bot.fetch_channel(category["channel_id"])
+            except Exception:
+                logger.debug("fetch_channel %d failed", category["channel_id"])
+        if not channel:
             logger.warning(
                 "Channel %d missing for %s",
                 category["channel_id"], category["slug"],
@@ -148,9 +153,6 @@ class CategoriesCog(commands.Cog):
                 if not manual:
                     to_mark.append((category["id"], deal_id))
 
-        if to_mark:
-            await self.bot.db.mark_category_deals_sent_batch(to_mark)
-
         if not new_deals:
             if interaction:
                 await interaction.followup.send(
@@ -192,6 +194,11 @@ class CategoriesCog(commands.Cog):
             embed.set_thumbnail(url=top[0]["image_url"])
 
         await channel.send(embed=embed)
+
+        # Mark as sent only after successful delivery
+        if to_mark:
+            await self.bot.db.mark_category_deals_sent_batch(to_mark)
+
         await self.bot.db.update_category_last_run(category["id"])
         await self.bot.db.update_category_stats(
             category["id"], len(deals), len(new_deals),

@@ -1,6 +1,5 @@
 import logging
 import os
-from contextlib import asynccontextmanager
 from typing import Any
 
 import aiosqlite
@@ -34,16 +33,6 @@ class Database:
             raise RuntimeError("Database not initialized — call init() first")
         return self._conn
 
-    @asynccontextmanager
-    async def transaction(self):
-        """Explicit transaction scope for multi-step atomic operations."""
-        await self.conn.execute("BEGIN")
-        try:
-            yield self.conn
-            await self.conn.execute("COMMIT")
-        except Exception:
-            await self.conn.execute("ROLLBACK")
-            raise
 
     async def _create_tables(self) -> None:
         await self.conn.executescript("""

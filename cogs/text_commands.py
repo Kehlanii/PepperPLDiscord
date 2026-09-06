@@ -105,6 +105,8 @@ class TextCommandsCog(commands.Cog):
     async def _handle_clean(
         self, message: discord.Message, content: str,
     ) -> None:
+        if not message.guild:
+            return
         if not message.channel.permissions_for(message.guild.me).manage_messages:
             await message.reply(
                 "❌ Missing 'Manage Messages' permission.", delete_after=10,

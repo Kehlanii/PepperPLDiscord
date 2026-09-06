@@ -189,7 +189,8 @@ class PepperScraper:
 
             temp_el = article.css_first(".vote-temp")
             try:
-                temp = int(temp_el.text(strip=True).replace("°", "")) if temp_el else 0
+                raw_temp = temp_el.text(strip=True).replace("°", "").replace(" ", "").replace("\xa0", "") if temp_el else "0"
+                temp = int(raw_temp)
             except ValueError:
                 temp = 0
 

@@ -14,6 +14,8 @@ def parse_price(raw: str | None) -> float | None:
             raw.lower()
             .replace("zł", "")
             .replace("pln", "")
+            .replace("\xa0", "")
+            .replace("\u202f", "")
             .replace(" ", "")
             .replace(",", ".")
             .strip()
